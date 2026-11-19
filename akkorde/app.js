@@ -206,37 +206,94 @@ function render() {
 
 // ---------- Ton ----------
 
-let audio;
-function play(midi) {
-  if (!midi.length) return;
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state === 'suspended') audio.resume();
-    const t0 = audio.currentTime + 0.02;
-    const master = audio.createGain();
-    master.gain.value = 0.5 / Math.sqrt(midi.length);
-    master.connect(audio.destination);
-    const strum = state.instrument === 'guitar' ? 0.035 : 0;
-    midi.forEach((m, i) => {
-      const t = t0 + i * strum;
-      const f = 440 * 2 ** ((m - 69) / 12);
-      const g = audio.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(1, t + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.001, t + (state.instrument === 'guitar' ? 1.8 : 2.4));
-      g.connect(master);
-      for (const [type, mult, vol] of [['triangle', 1, 0.8], ['sine', 2, 0.25]]) {
-        const osc = audio.createOscillator();
-        const v = audio.createGain();
-        osc.type = type;
-        osc.frequency.value = f * mult;
-        v.gain.value = vol;
-        osc.connect(v).connect(g);
-        osc.start(t);
-        osc.stop(t + 2.5);
+// Klang wird vorab als WAV berechnet und über ein <audio>-Element abgespielt.
+// Das funktioniert auch dort, wo Web Audio stumm bleibt (z. B. iPhone mit Lautlos-Schalter).
+const RATE = 22050;
+
+function synth(midi, guitar) {
+  const len = Math.floor(RATE * (guitar ? 2.2 : 2.6));
+  const out = new Float32Array(len);
+  midi.forEach((m, i) => {
+    const f = 440 * 2 ** ((m - 69) / 12);
+    const start = Math.floor(i * (guitar ? 0.04 : 0) * RATE);
+    if (guitar) {
+      // Karplus-Strong: gezupfte Saite
+      const n = Math.max(2, Math.round(RATE / f));
+      const buf = new Float32Array(n);
+      for (let k = 0; k < n; k++) buf[k] = Math.random() * 2 - 1;
+      let idx = 0;
+      for (let t = start; t < len; t++) {
+        const next = (idx + 1) % n;
+        const v = buf[idx];
+        buf[idx] = 0.996 * 0.5 * (v + buf[next]);
+        out[t] += v * 0.5;
+        idx = next;
       }
+    } else {
+      for (let t = start; t < len; t++) {
+        const s = (t - start) / RATE;
+        const env = Math.min(1, s / 0.01) * Math.exp(-s * 1.6);
+        const w = 2 * Math.PI * f * s;
+        out[t] += env * (Math.sin(w) + 0.35 * Math.sin(2 * w) + 0.12 * Math.sin(3 * w)) * 0.5;
+      }
+    }
+  });
+  let peak = 0;
+  for (const v of out) peak = Math.max(peak, Math.abs(v));
+  const gain = peak > 0 ? 0.85 / peak : 0;
+  const fade = Math.floor(RATE * 0.15);
+  for (let t = 0; t < len; t++) out[t] *= gain * (t > len - fade ? (len - t) / fade : 1);
+  return out;
+}
+
+function wavDataUri(samples) {
+  const bytes = new Uint8Array(44 + samples.length * 2);
+  const dv = new DataView(bytes.buffer);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) bytes[o + i] = s.charCodeAt(i); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + samples.length * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, RATE, true); dv.setUint32(28, RATE * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, samples.length * 2, true);
+  samples.forEach((v, i) => dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 32767, true));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return 'data:audio/wav;base64,' + btoa(bin);
+}
+
+const sounds = new Map();
+let player;
+let ctx;
+
+function playWebAudio(samples) {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === 'suspended') ctx.resume();
+  const buf = ctx.createBuffer(1, samples.length, RATE);
+  buf.getChannelData(0).set(samples);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start();
+}
+
+function play(midi) {
+  if (!midi.length) return Promise.resolve(false);
+  const guitar = state.instrument === 'guitar';
+  const key = (guitar ? 'g' : 'p') + midi.join(',');
+  let s = sounds.get(key);
+  if (!s) {
+    const samples = synth(midi, guitar);
+    s = { samples, uri: wavDataUri(samples) };
+    sounds.set(key, s);
+  }
+  try {
+    if (player) player.pause();
+    player = new Audio(s.uri);
+    return player.play().then(() => true, () => {
+      try { playWebAudio(s.samples); return true; } catch { return false; }
     });
-  } catch { /* kein Ton verfügbar */ }
+  } catch {
+    try { playWebAudio(s.samples); return Promise.resolve(true); } catch { return Promise.resolve(false); }
+  }
 }
 
 // ---------- Bedienung ----------
@@ -300,7 +357,13 @@ $('copy').addEventListener('click', () => {
 
 $('cards').addEventListener('click', (e) => {
   const b = e.target.closest('.play');
-  if (b) play(b.dataset.midi.split(',').filter(Boolean).map(Number));
+  if (!b) return;
+  b.classList.remove('playing');
+  void b.offsetWidth;
+  b.classList.add('playing');
+  play(b.dataset.midi.split(',').filter(Boolean).map(Number)).then((ok) => {
+    if (!ok) toast('Ton wird hier blockiert – Lautstärke und Lautlos-Schalter prüfen');
+  });
 });
 
 for (const name of ['instrument', 'notation', 'spelling']) {
