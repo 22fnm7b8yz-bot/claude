@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tierstimmen</title>
+  <meta name="description" content="Tier in einer beliebigen Sprache eingeben, Bild ansehen und den Ruf des Tiers anhören">
+  <meta name="theme-color" content="#1f6b45">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <h1>Tierstimmen</h1>
+      <p class="tagline">Tier in irgendeiner Sprache eingeben – Bild ansehen, Ruf anhören.</p>
+    </header>
+
+    <form id="search" class="search" autocomplete="off">
+      <label class="visually-hidden" for="q">Tier</label>
+      <input id="q" name="q" type="search" placeholder="z. B. Hund, chat, lion, vaca, лягушка …" required enterkeyhint="search">
+      <label class="visually-hidden" for="lang">Sprache der Eingabe</label>
+      <select id="lang" name="lang"></select>
+      <button id="go" type="submit">Suchen</button>
+    </form>
+
+    <div id="examples" class="examples" aria-label="Beispiele"></div>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <article id="result" class="result" hidden>
+      <figure class="photo">
+        <img id="photo" alt="">
+        <figcaption id="photo-credit"></figcaption>
+      </figure>
+
+      <div class="info">
+        <p id="kind" class="kind"></p>
+        <h2 id="name"></h2>
+        <p id="sci" class="sci"></p>
+        <p id="desc" class="desc"></p>
+
+        <div class="player">
+          <button id="play" class="play" type="button" aria-label="Ruf anhören">
+            <span class="play-icon" aria-hidden="true"></span>
+            <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          </button>
+          <div class="player-text">
+            <strong id="play-label">Ruf anhören</strong>
+            <span id="sound-meta" class="small"></span>
+            <button id="next" class="link-btn" type="button" hidden>Andere Aufnahme</button>
+          </div>
+        </div>
+
+        <section class="names">
+          <h3>So heißt es anderswo</h3>
+          <dl id="names"></dl>
+        </section>
+
+        <section id="wiki" class="wiki" hidden>
+          <p id="extract"></p>
+          <a id="wiki-link" target="_blank" rel="noopener">Weiterlesen in der Wikipedia</a>
+        </section>
+      </div>
+    </article>
+
+    <section id="alts" class="alts" hidden>
+      <h3>Nicht das richtige Tier?</h3>
+      <div id="alt-list" class="examples"></div>
+    </section>
+
+    <footer class="foot small">
+      Bilder, Namen und Tonaufnahmen stammen aus Wikidata, Wikimedia Commons und Wikipedia
+      (freie Lizenzen, Urheber stehen jeweils dabei).
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

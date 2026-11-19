@@ -62,3 +62,28 @@ Für die Kamera am Handy braucht die App **HTTPS**. Am einfachsten über GitHub 
 - Bon glatt streichen, auf dunklen Untergrund legen und gerade von oben fotografieren
 - Gutes Licht, keine Schatten; lange Bons lieber in zwei Fotos aufteilen
 - Beim ersten Scan werden die Texterkennungsdaten (ca. 5 MB) geladen, danach geht es auch offline
+
+---
+
+# Tierstimmen 🐾
+
+Zweite kleine Web-App im Ordner `tierstimmen/`: **Tier in einer beliebigen Sprache eingeben**
+(„Hund“, „chat“, „lion“, „vaca“, „лягушка“, „ネコ“ …), ein **Bild** dazu sehen und per Knopfdruck
+den **Ruf bzw. Schrei des Tiers anhören**.
+
+- Sprache der Eingabe wählbar oder automatisch (erkennt auch kyrillische, griechische, arabische, chinesische, japanische und koreanische Schrift)
+- Daten aus [Wikidata](https://www.wikidata.org) (Namen, Bild, Tonaufnahme), [Wikimedia Commons](https://commons.wikimedia.org) (Bilder und Tierlaute) und Wikipedia (Kurzbeschreibung)
+- Mehrere Aufnahmen pro Tier („Andere Aufnahme“), Aussprache-Aufnahmen werden aussortiert
+- Zeigt den Namen des Tiers in vielen Sprachen und bietet Alternativen an, falls der erste Treffer nicht passt
+- MP3-Fassung wird bevorzugt, damit die Laute auch auf dem iPhone laufen
+- Teilbare Links: `tierstimmen/?tier=Kuh&sprache=de`
+
+Lokal starten mit `npm start` und dann <http://localhost:8080/tierstimmen/> öffnen.
+Nach dem Merge nach `main` ist die App über GitHub Pages unter `…/tierstimmen/` erreichbar.
+
+| Datei | Inhalt |
+| --- | --- |
+| `tierstimmen/lib.js` | Sprach-Erkennung, Bewertung der Treffer, Auswahl der Tonquellen |
+| `tierstimmen/api.js` | Anfragen an Wikidata, Commons und Wikipedia |
+| `tierstimmen/app.js` | Oberfläche und Abspielen |
+| `test/tierstimmen.test.js` | Tests (mit simulierten Server-Antworten) |
