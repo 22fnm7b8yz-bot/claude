@@ -62,3 +62,20 @@ Für die Kamera am Handy braucht die App **HTTPS**. Am einfachsten über GitHub 
 - Bon glatt streichen, auf dunklen Untergrund legen und gerade von oben fotografieren
 - Gutes Licht, keine Schatten; lange Bons lieber in zwei Fotos aufteilen
 - Beim ersten Scan werden die Texterkennungsdaten (ca. 5 MB) geladen, danach geht es auch offline
+
+---
+
+# Griffbild 🎸 (`akkorde/`)
+
+Akkorde anzeigen und transponieren – erreichbar unter `/akkorde/` (lokal: `npm start`, dann http://localhost:8080/akkorde/).
+
+- Akkordfolge oder ganzes Lied (Akkordzeilen über dem Text) eingeben
+- **+ / −** transponiert alle Akkorde gleichzeitig um einen Halbton (auch Pfeiltasten), Liedtext bleibt unverändert und Akkorde bleiben über der richtigen Silbe
+- Griffbilder für Gitarre (offene Griffe, Barré-Griffe, Slash-Akkorde) oder Klaviatur, mit Tönen und Intervallen; ▶ spielt den Akkord ab
+- Deutsche (H/B, Fis, Es …) oder internationale Schreibweise, Vorzeichen automatisch, ♯ oder ♭
+- Kapo-Hinweis, „Übernehmen" macht die transponierte Fassung zur neuen Eingabe
+
+| Datei | Inhalt |
+| --- | --- |
+| `akkorde/chords.js` | Akkorde erkennen, transponieren, Töne und Gitarrengriffe berechnen (getestet in `test/chords.test.js`) |
+| `akkorde/app.js` | Oberfläche, Griffbilder (SVG), Tonwiedergabe |
