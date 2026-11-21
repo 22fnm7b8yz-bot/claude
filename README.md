@@ -87,3 +87,37 @@ Nach dem Merge nach `main` ist die App über GitHub Pages unter `…/tierstimmen
 | `tierstimmen/api.js` | Anfragen an Wikidata, Commons und Wikipedia |
 | `tierstimmen/app.js` | Oberfläche und Abspielen |
 | `test/tierstimmen.test.js` | Tests (mit simulierten Server-Antworten) |
+
+---
+
+# SportAmpel 🚦
+
+Dritte Web-App im Ordner `sport/`: fragt nach, **ob du Sport gemacht hast oder noch machst**, und zeigt
+eine **Ampel** nach den Tagen seit dem letzten Training:
+
+| Tage ohne Sport | Ampel |
+| --- | --- |
+| 0–3 | grün |
+| 4 | orange |
+| ab 5 | rot |
+
+- **Nachfragen:** Sobald der letzte Sport 2 Tage her ist (einstellbar: jeden Tag / ab 2 / ab 3 Tagen), fragt die App
+  zu jeder Erinnerungszeit (Standard 10:00, 17:00, 20:00): *✅ Gemacht* · *⏰ Mach ich noch* · *Heute nicht*.
+  Nach „Mach ich noch“ fragt sie zur nächsten Zeit wieder, am nächsten Tag ggf. „Hat's gestern geklappt?“
+- **Eintragen:** Datum (auch nachträglich), Dauer, Sportart, Notiz
+- **Übersicht:** Monatskalender mit Ampelfarbe und Minuten je Tag, Liste aller Trainings (bearbeiten/löschen)
+- **Statistik:** Woche / Monat / Jahr – Trainings, Gesamtzeit, Ø Dauer, Sporttage pro Woche, längste Pause,
+  Balkendiagramm über die letzten 12 Wochen/Monate bzw. 5 Jahre, Sportarten, Wochentage, Tabelle
+- **Erinnerungen:** Benachrichtigungen mit Antwort-Knöpfen (solange die App offen ist; installiert auf Android
+  zusätzlich im Hintergrund) und als zuverlässige Alternative eine **Kalenderdatei (.ics)** mit Terminen alle 2 Tage
+- **Daten** nur lokal auf dem Gerät, Sicherung als JSON, Export als CSV (Excel)
+
+Lokal: `npm start`, dann <http://localhost:8080/sport/>. Nach dem Merge nach `main` unter `…/sport/` erreichbar;
+am Handy öffnen und *Zum Startbildschirm hinzufügen*.
+
+| Datei | Inhalt |
+| --- | --- |
+| `sport/lib.js` | Ampel, Fragetage, Statistik, CSV- und Kalender-Export (ohne DOM, getestet) |
+| `sport/app.js` | Oberfläche, Eintragen, Diagramme, Erinnerungen |
+| `sport/sw.js` | Offline-Cache, Hintergrund-Erinnerung, Antworten aus der Benachrichtigung |
+| `test/sport.test.js` | Tests |
