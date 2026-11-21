@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SportAmpel</title>
+  <meta name="description" content="Fragt nach, ob du Sport gemacht hast, zeigt eine Ampel und Statistiken pro Woche, Monat und Jahr">
+  <meta name="theme-color" content="#1d8a4e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SportAmpel">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500;62..125,700;62..125,800&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Sport<span>Ampel</span></h1>
+  </header>
+
+  <main id="view" class="wrap"></main>
+
+  <nav class="tabs" aria-label="Navigation">
+    <a href="#ampel" data-tab="ampel"><span class="ico" aria-hidden="true">🚦</span>Ampel</a>
+    <a href="#uebersicht" data-tab="uebersicht"><span class="ico" aria-hidden="true">📅</span>Übersicht</a>
+    <a href="#statistik" data-tab="statistik"><span class="ico" aria-hidden="true">📊</span>Statistik</a>
+    <a href="#einstellungen" data-tab="einstellungen"><span class="ico" aria-hidden="true">⚙️</span>Einstellungen</a>
+  </nav>
+
+  <dialog id="dialog"><div id="dialog-body"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
