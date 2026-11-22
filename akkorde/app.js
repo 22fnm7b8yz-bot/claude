@@ -1,5 +1,5 @@
 import {
-  transposeText, extractChords, transposeChord, chordNotes, guitarChord, isChordLine, GUITAR_TUNING,
+  transposeText, extractChords, transposeChord, chordNotes, guitarChord, isChordLine, GUITAR_TUNING, noteName,
 } from './chords.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,7 +23,7 @@ und jeder Griff bleibt, wo er stand.`,
 };
 
 let lastPairs = [];
-const state = { title: '', text: PRESETS.lied, offset: 0, instrument: 'guitar', notation: 'de', spelling: 'auto' };
+const state = { fbChord: '', fbLabels: 'names', fbShape: true, title: '', text: PRESETS.lied, offset: 0, instrument: 'guitar', notation: 'de', spelling: 'auto' };
 try {
   Object.assign(state, JSON.parse(localStorage.getItem(STORE) || '{}'));
 } catch { /* ohne Speicher weiter */ }
@@ -130,6 +130,69 @@ function pianoSvg(info) {
 
 const PLAY_ICON = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>';
 
+// ---------- Griffbrett ----------
+
+const FRETS = 15;
+const STRING_NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
+
+function fretboardSvg({ info, shape, labels, o }) {
+  const fw = 50; const nutX = 46; const top = 22; const sh = 26;
+  const X = (f) => (f === 0 ? 24 : nutX + (f - 0.5) * fw);
+  const Y = (s) => top + (5 - s) * sh; // hohe e-Saite oben, wie in Tabulatur
+  const width = nutX + FRETS * fw + 12;
+  const height = top + 5 * sh + 34;
+  const parts = [];
+  // Bundmarkierungen
+  for (const f of [3, 5, 7, 9, 15]) parts.push(`<circle class="fb-inlay" cx="${X(f)}" cy="${top + 2.5 * sh}" r="5"/>`);
+  parts.push(`<circle class="fb-inlay" cx="${X(12)}" cy="${top + 1.5 * sh}" r="5"/><circle class="fb-inlay" cx="${X(12)}" cy="${top + 3.5 * sh}" r="5"/>`);
+  for (let f = 1; f <= FRETS; f++) {
+    parts.push(`<line class="g-line" x1="${nutX + f * fw}" x2="${nutX + f * fw}" y1="${top}" y2="${top + 5 * sh}" stroke-width="1.2"/>`);
+    parts.push(`<text class="g-label" x="${X(f)}" y="${top + 5 * sh + 22}" text-anchor="middle">${f}</text>`);
+  }
+  parts.push(`<line class="g-nut" x1="${nutX}" x2="${nutX}" y1="${top - 1}" y2="${top + 5 * sh + 1}" stroke-width="5"/>`);
+  for (let s = 0; s < 6; s++) {
+    parts.push(`<line class="g-line" x1="${nutX}" x2="${width - 12}" y1="${Y(s)}" y2="${Y(s)}" stroke-width="${1 + (5 - s) * 0.3}"/>`);
+    parts.push(`<text class="g-label" x="6" y="${Y(s) + 3.5}">${STRING_NAMES[s]}</text>`);
+  }
+  const chordPcs = new Map((info?.notes || []).map((n) => [n.pc, n]));
+  if (info?.bass && !chordPcs.has(info.bass.pc)) chordPcs.set(info.bass.pc, { pc: info.bass.pc, name: info.bass.name, label: 'B', interval: -1 });
+  const preferFlat = info ? info.notes.some((n) => /b$/.test(n.name) || (o.german && n.name === 'B')) : undefined;
+  for (let s = 0; s < 6; s++) {
+    for (let f = 0; f <= FRETS; f++) {
+      const midi = GUITAR_TUNING[s] + f;
+      const pc = midi % 12;
+      const hit = chordPcs.get(pc);
+      if (info && !hit) continue;
+      const inShape = shape && shape.frets[s] === f;
+      const cls = !info ? 'fb-note' : hit.interval === 0 ? 'fb-root' : hit.interval === -1 ? 'fb-bass' : 'fb-tone';
+      const text = labels === 'intervals' && hit ? hit.label : hit ? hit.name : noteName(pc, { ...o, preferFlat });
+      parts.push(`<g class="fb-dot ${cls}${inShape ? ' fb-in-shape' : ''}" data-midi="${midi}" tabindex="0" role="button" aria-label="${text}, Saite ${STRING_NAMES[s]}, Bund ${f}">`
+        + `<circle cx="${X(f)}" cy="${Y(s)}" r="10.5"/><text x="${X(f)}" y="${Y(s) + 3.5}" text-anchor="middle">${esc(text)}</text></g>`);
+    }
+  }
+  return `<svg class="fretboard" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Griffbrett">${parts.join('')}</svg>`;
+}
+
+function renderFretboard(pairs) {
+  const o = opts();
+  const names = pairs.map((p) => p.to);
+  if (state.fbChord && state.fbChord !== '*' && !names.includes(state.fbChord)) state.fbChord = names[0] || '*';
+  if (!state.fbChord) state.fbChord = names[0] || '*';
+  const sel = state.fbChord;
+  $('fb-chords').innerHTML = names.map((n) => `<button type="button" class="chip${n === sel ? ' on' : ''}" data-fb="${esc(n)}">${esc(n)}</button>`).join('')
+    + `<button type="button" class="chip${sel === '*' ? ' on' : ''}" data-fb="*">Alle Töne</button>`;
+  const info = sel === '*' ? null : chordNotes(sel, o);
+  const shape = info && state.fbShape ? guitarChord(sel, o) : null;
+  $('fb-board').innerHTML = fretboardSvg({ info, shape, labels: state.fbLabels, o });
+  $('fb-labels').hidden = !info;
+  $('fb-shape-wrap').hidden = !info;
+  document.querySelectorAll('input[name="fb-labels"]').forEach((r) => { r.checked = r.value === state.fbLabels; });
+  $('fb-shape').checked = state.fbShape;
+  $('fb-sub').textContent = info
+    ? `Alle Töne von ${sel} bis zum ${FRETS}. Bund: ${info.notes.map((n) => n.name).join(' ')}${shape ? ' · Umrandet: der Griff von oben' : ''}`
+    : `Alle Töne bis zum ${FRETS}. Bund · Tippe auf einen Ton zum Anhören`;
+}
+
 function renderCards(pairs) {
   const o = opts();
   const cards = $('cards');
@@ -192,6 +255,7 @@ function render() {
   }
   lastPairs = pairs;
   renderCards(pairs);
+  renderFretboard(pairs);
 
   $('offset').textContent = n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
   $('offset-unit').textContent = Math.abs(n) === 1 ? 'Halbton' : 'Halbtöne';
@@ -650,6 +714,36 @@ if (window.claude?.use) {
 } else {
   $('search-btn').hidden = true;
 }
+
+$('fb-chords').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-fb]');
+  if (!b) return;
+  state.fbChord = b.dataset.fb;
+  render();
+});
+document.querySelectorAll('input[name="fb-labels"]').forEach((r) => r.addEventListener('change', () => { state.fbLabels = r.value; render(); }));
+$('fb-shape').addEventListener('change', () => { state.fbShape = $('fb-shape').checked; render(); });
+const playDot = (e) => {
+  const d = e.target.closest('.fb-dot');
+  if (!d) return;
+  d.classList.remove('playing');
+  void d.getBoundingClientRect();
+  d.classList.add('playing');
+  const prev = state.instrument;
+  state.instrument = 'guitar';
+  play([Number(d.dataset.midi)]);
+  state.instrument = prev;
+};
+$('fb-board').addEventListener('click', playDot);
+$('fb-board').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playDot(e); } });
+// Klick auf einen Akkordnamen in den Griffbildern zeigt ihn auf dem Griffbrett
+$('cards').addEventListener('click', (e) => {
+  const n = e.target.closest('.name');
+  if (!n) return;
+  state.fbChord = n.textContent;
+  render();
+  $('fretboard-title').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+});
 
 render();
 fit();

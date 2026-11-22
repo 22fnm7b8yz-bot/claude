@@ -75,6 +75,7 @@ Akkorde anzeigen und transponieren – erreichbar unter `/akkorde/` (lokal: `npm
 - Deutsche (H/B, Fis, Es …) oder internationale Schreibweise, Vorzeichen automatisch, ♯ oder ♭
 - Kapo-Hinweis, „Übernehmen" macht die transponierte Fassung zur neuen Eingabe
 - **Lied suchen:** In der claude.ai-Ansicht holt „Akkorde holen" die Akkordfolge (ohne Liedtext) über Claude; außerdem Links zur Websuche (Ultimate Guitar, Google)
+- **Griffbrett:** zeigt alle Töne eines Akkords (oder alle Töne überhaupt) bis zum 15. Bund, wahlweise als Tonnamen oder Intervalle, mit markiertem Griff; Antippen spielt den Ton
 - **PDF:** transponierte Fassung mit Griffbildern als PDF (jsPDF, wird bei Bedarf vom CDN geladen)
 
 | Datei | Inhalt |

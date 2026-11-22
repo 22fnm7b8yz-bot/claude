@@ -151,6 +151,39 @@ pre.sheet .ch { color: var(--accent); font-weight: 600; }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); padding: 24px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-size: 14px; z-index: 20; }
 
+/* Griffbrett */
+.fb { display: grid; gap: 12px; }
+.fb-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; }
+.fb-chords { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.fb-chords .chip { font-weight: 600; font-size: 14px; padding: 5px 12px; }
+.fb-chords .chip.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.fb-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.fb-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 8px 4px; -webkit-overflow-scrolling: touch; }
+.fretboard { display: block; width: 100%; min-width: 760px; height: auto; max-width: none; }
+.fb-inlay { fill: var(--line); }
+.fb-dot { cursor: pointer; }
+.fb-dot text { font: 600 10px var(--font-body); pointer-events: none; }
+.fb-dot circle { stroke-width: 2; }
+.fb-root circle { fill: var(--accent); stroke: var(--accent); }
+.fb-root text { fill: var(--accent-ink); }
+.fb-tone circle { fill: var(--ink); stroke: var(--ink); }
+.fb-tone text { fill: var(--bg); }
+.fb-bass circle { fill: var(--muted); stroke: var(--muted); }
+.fb-bass text { fill: var(--bg); }
+.fb-note circle { fill: var(--surface); stroke: var(--line); }
+.fb-note text { fill: var(--muted); }
+.fb-in-shape circle { stroke: var(--accent); stroke-width: 3; r: 12; }
+.fb-tone.fb-in-shape circle { fill: var(--ink); }
+.fb-dot:hover circle, .fb-dot:focus-visible circle { stroke: var(--accent); stroke-width: 3; }
+.fb-dot:focus { outline: none; }
+.fb-dot.playing circle { animation: fbpulse .5s ease; }
+@keyframes fbpulse { 0% { opacity: .4; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fb-dot.playing circle { animation: none; } }
+.card .name { cursor: pointer; }
+.card .name:hover { color: var(--accent); }
+
 /* SVG-Farben */
 .g-line { stroke: var(--muted); }
 .g-nut { stroke: var(--ink); }
@@ -268,6 +301,24 @@ pre.sheet .ch { color: var(--accent); font-weight: 600; }
       <p id="cards-sub"></p>
     </div>
     <div class="cards" id="cards" style="margin-top:12px"></div>
+  </section>
+
+  <section class="fb" aria-labelledby="fretboard-title">
+    <div class="cards-head">
+      <h2 id="fretboard-title">Griffbrett</h2>
+      <p id="fb-sub"></p>
+    </div>
+    <div class="fb-controls">
+      <div class="fb-chords" id="fb-chords" role="group" aria-label="Akkord auf dem Griffbrett"></div>
+      <div class="fb-options">
+        <div class="seg" id="fb-labels" role="radiogroup" aria-label="Beschriftung">
+          <label><input type="radio" name="fb-labels" id="fb-lab-names" value="names" checked><span>Tonnamen</span></label>
+          <label><input type="radio" name="fb-labels" id="fb-lab-int" value="intervals"><span>Intervalle</span></label>
+        </div>
+        <label class="check" id="fb-shape-wrap"><input type="checkbox" id="fb-shape" checked> Griff markieren</label>
+      </div>
+    </div>
+    <div class="fb-scroll" id="fb-board"></div>
   </section>
 </div>
 <div class="toast" id="toast" hidden></div>
