@@ -22,7 +22,8 @@ und jeder Griff bleibt, wo er stand.`,
   jazz: '| Dm7  | G7   | Cmaj7 | Cmaj7 |\n| Em7b5 | A7  | Dm7   | G7    |',
 };
 
-const state = { text: PRESETS.lied, offset: 0, instrument: 'guitar', notation: 'de', spelling: 'auto' };
+let lastPairs = [];
+const state = { title: '', text: PRESETS.lied, offset: 0, instrument: 'guitar', notation: 'de', spelling: 'auto' };
 try {
   Object.assign(state, JSON.parse(localStorage.getItem(STORE) || '{}'));
 } catch { /* ohne Speicher weiter */ }
@@ -189,6 +190,7 @@ function render() {
     const t = transposeChord(c, n, o);
     if (t && !seen.has(t)) { seen.add(t); pairs.push({ from: c, to: t }); }
   }
+  lastPairs = pairs;
   renderCards(pairs);
 
   $('offset').textContent = n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
@@ -378,6 +380,276 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowUp' || e.key === '+') { e.preventDefault(); step(1); }
   if (e.key === 'ArrowDown' || e.key === '-') { e.preventDefault(); step(-1); }
 });
+
+// ---------- Lied suchen ----------
+
+const songInput = $('song');
+songInput.value = state.title || '';
+songInput.addEventListener('input', () => { state.title = songInput.value; save(); });
+
+function updateWebLinks() {
+  const q = songInput.value.trim();
+  $('web-links').hidden = !q;
+  $('web-ug').href = `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(q)}`;
+  $('web-google').href = `https://www.google.com/search?q=${encodeURIComponent(`${q} Akkorde chords`)}`;
+}
+songInput.addEventListener('input', updateWebLinks);
+updateWebLinks();
+
+let sampleFn = null;
+let searchCtl = null;
+const setSearchStatus = (msg, kind = '') => {
+  const el = $('search-status');
+  el.textContent = msg;
+  el.dataset.kind = kind;
+  el.hidden = !msg;
+};
+
+const SEARCH_ERRORS = {
+  not_granted: 'Du hast der Seite nicht erlaubt, Claude zu fragen. Nutze die Websuche daneben.',
+  sampling_disabled: 'Claude ist für dein Konto hier nicht verfügbar. Nutze die Websuche daneben.',
+  rate_limited: 'Gerade zu viele Anfragen. Versuch es in ein paar Minuten noch einmal.',
+  session_expired: 'Bitte melde dich bei Claude neu an und versuch es dann noch einmal.',
+  invalid_json: 'Die Antwort war unvollständig. Versuch es noch einmal.',
+  refused: 'Zu diesem Lied gab es keine Antwort. Probier die Websuche.',
+};
+
+async function searchSong(e) {
+  e.preventDefault();
+  const q = songInput.value.trim();
+  if (!q) { songInput.focus(); return; }
+  if (!sampleFn) { setSearchStatus('Die automatische Suche geht nur in der claude.ai-Ansicht. Nutze die Websuche.', 'warn'); return; }
+  searchCtl?.abort();
+  searchCtl = new AbortController();
+  const btn = $('search-btn');
+  btn.disabled = true;
+  setSearchStatus('Claude sucht die Akkorde …', 'busy');
+  const prompt = `Gib die Akkordfolge des Lieds "${q}" an.
+Regeln:
+- Nur Akkorde, KEIN Liedtext (urheberrechtlich geschützt).
+- Internationale Schreibweise: B für H, Bb für das deutsche B, Kreuze als #, z. B. F#m, Bb, Ebmaj7, C/E.
+- Gliedere nach Teilen (Intro, Strophe, Refrain, Bridge, Outro …) in der Reihenfolge, wie sie im Lied vorkommen; wiederholte Teile nur einmal angeben.
+- Pro Teil die Akkorde in Takten: "| C  G  | Am  F  |", höchstens 4 Takte pro Zeile, mehrere Zeilen mit \n getrennt.
+- Wenn du das Lied nicht sicher kennst, setze "found" auf false und lass "sections" leer. Erfinde nichts.
+Antworte nur mit JSON in dieser Form:
+{"found": true, "title": "Titel", "artist": "Interpret", "key": "G", "capo": 0, "sections": [{"name": "Strophe", "chords": "| G  D  | Em  C  |"}], "note": "kurzer Hinweis oder leer"}`;
+  try {
+    const r = await sampleFn.json(prompt, { signal: searchCtl.signal, cache: { gcTime: 24 * 3600 * 1000 } });
+    if (!r || !r.found || !Array.isArray(r.sections) || !r.sections.length) {
+      setSearchStatus(`„${q}“ kennt Claude nicht sicher genug. Nutze die Websuche und kopiere die Akkorde ins Feld.`, 'warn');
+      return;
+    }
+    let text = r.sections
+      .filter((sec) => sec && sec.chords)
+      .map((sec) => `[${String(sec.name || 'Teil')}]\n${String(sec.chords).trim()}`)
+      .join('\n\n');
+    // Von internationaler Schreibweise in die gewählte umwandeln
+    text = transposeText(text, 0, { ...opts(), parseGerman: false });
+    const title = [r.title, r.artist].filter(Boolean).join(' – ') || q;
+    state.title = title;
+    songInput.value = title;
+    state.text = text;
+    state.offset = 0;
+    input.value = text;
+    fit();
+    render();
+    const extra = [r.key && `Tonart ${transposeChord(String(r.key), 0, { ...opts(), parseGerman: false }) || r.key}`, r.capo ? `Kapo ${r.capo}. Bund` : '', r.note].filter(Boolean).join(' · ');
+    setSearchStatus(`Eingetragen: ${title}${extra ? ` (${extra})` : ''}. Aus Claudes Wissen, bitte mit dem Original vergleichen.`, 'ok');
+  } catch (err) {
+    if (err?.code === 'cancelled') return;
+    setSearchStatus(SEARCH_ERRORS[err?.code] || 'Die Suche hat nicht geklappt. Versuch es noch einmal oder nutze die Websuche.', 'warn');
+    if (err?.code === 'not_granted' || err?.code === 'sampling_disabled') sampleFn = null;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('search-form').addEventListener('submit', searchSong);
+
+// ---------- PDF ----------
+
+let downloadsApi = null;
+const loadJsPdf = () => new Promise((resolve, reject) => {
+  if (window.jspdf) { resolve(window.jspdf.jsPDF); return; }
+  const sc = document.createElement('script');
+  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  sc.onload = () => (window.jspdf ? resolve(window.jspdf.jsPDF) : reject(new Error('jsPDF fehlt')));
+  sc.onerror = () => reject(new Error('jsPDF konnte nicht geladen werden'));
+  document.head.appendChild(sc);
+});
+
+const ACCENT = [223, 84, 16];
+const INK = [22, 26, 36];
+const MUTED = [110, 118, 135];
+// jsPDF-Standardschriften kennen nur Westeuropäisch: Sonderzeichen ersetzen
+const pdfSafe = (t) => t.replace(/[♯]/g, '#').replace(/[♭]/g, 'b').replace(/[−–—]/g, '-').replace(/[„“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x00-\xff]/g, '?');
+
+function pdfGuitar(doc, g, x, y, rootPc) {
+  const used = g.frets.filter((f) => f != null && f > 0);
+  const max = used.length ? Math.max(...used) : 0;
+  const min = used.length ? Math.min(...used) : 0;
+  const start = max <= 4 ? 1 : min;
+  const rows = Math.max(4, max - start + 1);
+  const sx = 3.4; const fh = 4.4; const top = y + 5;
+  const X = (s) => x + 4 + s * sx;
+  const Y = (f) => top + (f - start + 0.5) * fh;
+  const roots = g.frets.map((f, s) => (f != null && mod12(GUITAR_TUNING[s] + f) === rootPc ? s : -1)).filter((s) => s >= 0);
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.2);
+  for (let r = 0; r <= rows; r++) doc.line(X(0), top + r * fh, X(5), top + r * fh);
+  for (let s = 0; s < 6; s++) doc.line(X(s), top, X(s), top + rows * fh);
+  if (start === 1) { doc.setDrawColor(...INK); doc.setLineWidth(0.9); doc.line(X(0), top, X(5), top); }
+  else { doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED); doc.text(String(start), X(0) - 1.6, Y(start) + 1, { align: 'right' }); }
+  if (g.barre) { doc.setFillColor(...INK); doc.roundedRect(X(g.barre.from) - 1.3, Y(g.barre.fret) - 1.3, X(g.barre.to) - X(g.barre.from) + 2.6, 2.6, 1.3, 1.3, 'F'); }
+  doc.setLineWidth(0.3);
+  g.frets.forEach((f, s) => {
+    const isRoot = roots.includes(s);
+    if (f == null) { doc.setDrawColor(...MUTED); doc.line(X(s) - 0.9, y + 1.6, X(s) + 0.9, y + 3.4); doc.line(X(s) + 0.9, y + 1.6, X(s) - 0.9, y + 3.4); }
+    else if (f === 0) { doc.setDrawColor(...(isRoot ? ACCENT : MUTED)); doc.circle(X(s), y + 2.5, 1, 'S'); }
+    else if (!(g.barre && f === g.barre.fret && s >= g.barre.from && s <= g.barre.to && !isRoot)) {
+      doc.setFillColor(...(isRoot ? ACCENT : INK)); doc.circle(X(s), Y(f), 1.35, 'F');
+    }
+  });
+  return top + rows * fh;
+}
+
+function pdfPiano(doc, info, x, y, w) {
+  const pcs = [...new Set(info.notes.map((n) => n.pc))];
+  const whiteIdx = [0, 2, 4, 5, 7, 9, 11];
+  const ww = w / 14; const h = 13;
+  const on = new Map();
+  let r = info.root;
+  if (info.bass && info.bass.pc !== info.root) { on.set(info.bass.pc, 'bass'); r = info.bass.pc + mod12(info.root - info.bass.pc); }
+  for (const pc of pcs) on.set(r + mod12(pc - info.root), pc === info.root ? 'root' : 'on');
+  const lo = Math.floor(Math.min(...on.keys()) / 12) * 12;
+  const keyX = {}; let wx = 0;
+  for (let n = lo; n < lo + 24; n++) if (whiteIdx.includes(mod12(n))) { keyX[n] = x + wx; wx += ww; }
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.15);
+  const mark = (kind, cx, cy, rad) => {
+    doc.setFillColor(...(kind === 'root' ? ACCENT : kind === 'bass' ? MUTED : INK));
+    doc.circle(cx, cy, rad, 'F');
+  };
+  for (let n = lo; n < lo + 24; n++) if (keyX[n] != null) { doc.setFillColor(255, 255, 255); doc.rect(keyX[n], y, ww, h, 'FD'); if (on.has(n)) mark(on.get(n), keyX[n] + ww / 2, y + h - 2.2, 0.9); }
+  for (let n = lo; n < lo + 24; n++) if (keyX[n] == null) {
+    const bx = keyX[n - 1] + ww * 0.68; doc.setFillColor(...INK); doc.rect(bx, y, ww * 0.64, h * 0.6, 'F');
+    if (on.has(n)) { doc.setFillColor(255, 255, 255); doc.circle(bx + ww * 0.32, y + h * 0.6 - 1.6, 1, 'F'); mark(on.get(n), bx + ww * 0.32, y + h * 0.6 - 1.6, 0.75); }
+  }
+  return y + h;
+}
+
+async function makePdf() {
+  const jsPDF = await loadJsPdf();
+  const o = opts();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210; const M = 15; const H = 297;
+  let y = M + 4;
+  const title = pdfSafe(state.title.trim() || 'Akkorde');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...INK);
+  doc.text(doc.splitTextToSize(title, W - 2 * M), M, y);
+  y += 8;
+  const n = state.offset;
+  const keyInfo = n === 0 ? 'Originaltonart' : `Transponiert um ${n > 0 ? '+' : '-'}${Math.abs(n)} ${Math.abs(n) === 1 ? 'Halbton' : 'Halbtöne'}${lastPairs[0] ? ` (${lastPairs[0].from} -> ${lastPairs[0].to})` : ''}`;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...MUTED);
+  doc.text(pdfSafe(keyInfo), M, y);
+  y += 4;
+  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.6); doc.line(M, y, M + 24, y);
+  y += 7;
+
+  const lines = transposeText(state.text, n, o).split('\n');
+  const longest = Math.max(20, ...lines.map((l) => l.length));
+  const size = Math.min(11, (W - 2 * M) / (longest * 0.6 * 0.3528));
+  const lh = size * 0.3528 * 1.45;
+  for (const line of lines) {
+    if (y > H - M) { doc.addPage(); y = M + 4; }
+    const chordLine = isChordLine(line, o);
+    doc.setFont('courier', chordLine ? 'bold' : 'normal'); doc.setFontSize(size);
+    doc.setTextColor(...(chordLine ? ACCENT : INK));
+    doc.text(pdfSafe(line), M, y);
+    y += lh;
+  }
+
+  if (lastPairs.length) {
+    const cols = 6; const cw = (W - 2 * M) / cols; const ch = state.instrument === 'guitar' ? 48 : 34;
+    y += 6;
+    if (y + 8 + ch > H - M) { doc.addPage(); y = M + 4; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+    doc.text(state.instrument === 'guitar' ? 'Griffbilder (Gitarre)' : 'Griffbilder (Klavier)', M, y);
+    y += 6;
+    lastPairs.forEach((pair, i) => {
+      const col = i % cols;
+      if (col === 0 && i > 0) y += ch;
+      if (col === 0 && y + ch > H - M) { doc.addPage(); y = M + 4; }
+      const x = M + col * cw;
+      const info = chordNotes(pair.to, o);
+      if (!info) return;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...INK);
+      doc.text(pdfSafe(pair.to), x + 2, y + 4);
+      let bottom = y + 6;
+      if (state.instrument === 'guitar') {
+        const g = guitarChord(pair.to, o);
+        if (g) bottom = pdfGuitar(doc, g, x, y + 6, info.root);
+      } else {
+        bottom = pdfPiano(doc, info, x + 2, y + 7, cw - 5);
+      }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+      const noteLine = info.notes.map((nn) => nn.name).join(' ') + (info.bass ? ` / ${info.bass.name}` : '');
+      doc.text(pdfSafe(noteLine), x + 2, bottom + 4);
+    });
+  }
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(`Griffbild · Seite ${p}/${pages}`, W - M, H - 8, { align: 'right' });
+  }
+  return doc.output('blob');
+}
+
+const pdfName = () => {
+  const base = (state.title.trim() || 'Akkorde').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Akkorde';
+  const n = state.offset;
+  return `${base}${n ? ` (${n > 0 ? '+' : '-'}${Math.abs(n)})` : ''}.pdf`;
+};
+
+$('pdf').addEventListener('click', async () => {
+  const btn = $('pdf');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'PDF wird erstellt …';
+  try {
+    const blob = await makePdf();
+    if (downloadsApi) {
+      try {
+        await downloadsApi.save({ filename: pdfName(), data: blob });
+        toast('PDF gespeichert');
+      } catch (err) {
+        if (err?.code === 'declined') return;
+        if (err?.code === 'rate_limited') { toast('Es ist schon ein Speichern-Dialog offen'); return; }
+        toast('Speichern ist in dieser Ansicht nicht möglich');
+      }
+    } else if (window.claude) {
+      toast('Speichern ist in dieser Ansicht nicht möglich');
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = pdfName();
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast('PDF heruntergeladen');
+    }
+  } catch {
+    toast('PDF konnte nicht erstellt werden. Bitte Internetverbindung prüfen.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+
+// Fähigkeiten der claude.ai-Ansicht (fehlen außerhalb: dann Websuche und normaler Download)
+if (window.claude?.use) {
+  window.claude.use('sample').then((s) => { sampleFn = s; $('search-btn').hidden = !s; }).catch(() => {});
+  window.claude.use('downloads').then((d) => { downloadsApi = d; }).catch(() => {});
+} else {
+  $('search-btn').hidden = true;
+}
 
 render();
 fit();

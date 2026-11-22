@@ -93,6 +93,21 @@ pre.sheet .ch { color: var(--accent); font-weight: 600; }
 .howto .k { color: var(--accent); }
 @media (max-width: 820px) { .howto { grid-template-columns: 1fr; } }
 
+/* Lied suchen */
+.finder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.finder label { font: 700 13px/1 var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.finder input { flex: 1 1 240px; min-width: 0; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.finder input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.finder .go { border: 0; border-radius: 10px; padding: 9px 16px; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.finder .go[disabled] { opacity: .6; cursor: progress; }
+.finder .web { font-size: 13px; color: var(--muted); display: inline-flex; gap: 10px; flex-wrap: wrap; }
+.finder .web a { color: var(--ink); font-weight: 500; }
+.finder .status { flex-basis: 100%; margin: 0; font-size: 13px; color: var(--muted); }
+.finder .status[data-kind="ok"] { color: var(--ink); }
+.finder .status[data-kind="warn"] { color: var(--accent); }
+.chip.strong { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.chip[disabled] { opacity: .6; cursor: progress; }
+
 /* Transponieren */
 .transposer {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
@@ -191,10 +206,21 @@ pre.sheet .ch { color: var(--accent); font-weight: 600; }
   </header>
 
   <ol class="howto">
-    <li><b>1</b> Akkorde ins Feld <i>„Deine Akkorde“</i> tippen, mit Leerzeichen getrennt, z.&nbsp;B. <code>C G Am F</code></li>
-    <li><b>2</b> Mit <b class="k">+</b> oder <b class="k">−</b> alle Akkorde einen Halbton höher oder tiefer setzen</li>
-    <li><b>3</b> Rechts steht die neue Fassung, darunter die Griffe. Mit ▶ hörst du einen Akkord</li>
+    <li><b>1</b><span>Lied suchen und <i>„Akkorde holen“</i> drücken, oder Akkorde selbst ins Feld tippen, z.&nbsp;B. <code>C G Am F</code></span></li>
+    <li><b>2</b><span>Mit <b class="k">+</b> oder <b class="k">−</b> alle Akkorde einen Halbton höher oder tiefer setzen</span></li>
+    <li><b>3</b><span>Rechts steht die neue Fassung, darunter die Griffe. ▶ spielt einen Akkord, <i>„PDF“</i> speichert alles</span></li>
   </ol>
+
+  <form class="finder" id="search-form" role="search">
+    <label for="song">Lied</label>
+    <input id="song" type="search" placeholder="Titel und Interpret, z. B. Let It Be – Beatles" autocomplete="off" enterkeyhint="search">
+    <button class="go" id="search-btn" type="submit">Akkorde holen</button>
+    <span class="web" id="web-links" hidden>Im Netz suchen:
+      <a id="web-ug" href="https://www.ultimate-guitar.com" target="_blank" rel="noopener">Ultimate Guitar ↗</a>
+      <a id="web-google" href="https://www.google.com" target="_blank" rel="noopener">Google ↗</a>
+    </span>
+    <p class="status" id="search-status" hidden></p>
+  </form>
 
   <section class="transposer" aria-label="Transponieren">
     <button class="step" id="down" type="button" aria-label="Einen Halbton tiefer" title="Einen Halbton tiefer (Pfeil runter)">−</button>
@@ -227,6 +253,7 @@ pre.sheet .ch { color: var(--accent); font-weight: 600; }
       <div class="pane-head">
         <h2>Transponiert <b id="result-badge"></b></h2>
         <div class="tools">
+          <button class="chip strong" id="pdf" type="button">PDF</button>
           <button class="chip" id="copy" type="button">Kopieren</button>
           <button class="chip" id="apply" type="button" title="Transponierte Fassung als neue Eingabe übernehmen">Übernehmen</button>
         </div>

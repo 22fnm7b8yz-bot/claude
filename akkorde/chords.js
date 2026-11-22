@@ -41,7 +41,8 @@ function readNote(s, german) {
  * Zerlegt einen Akkordnamen wie "F#m7/C#" in Grundton, Zusatz und Basston.
  * Gibt null zurück, wenn es kein Akkord ist.
  */
-export function parseChord(text, { german = true } = {}) {
+export function parseChord(text, { german = true, parseGerman } = {}) {
+  if (parseGerman != null) german = parseGerman; // Eingabe anders lesen als ausgeben
   const root = readNote(text, german);
   if (!root) return null;
   let suffix = root.rest;

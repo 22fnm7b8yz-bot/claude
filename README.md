@@ -74,6 +74,8 @@ Akkorde anzeigen und transponieren – erreichbar unter `/akkorde/` (lokal: `npm
 - Griffbilder für Gitarre (offene Griffe, Barré-Griffe, Slash-Akkorde) oder Klaviatur, mit Tönen und Intervallen; ▶ spielt den Akkord ab
 - Deutsche (H/B, Fis, Es …) oder internationale Schreibweise, Vorzeichen automatisch, ♯ oder ♭
 - Kapo-Hinweis, „Übernehmen" macht die transponierte Fassung zur neuen Eingabe
+- **Lied suchen:** In der claude.ai-Ansicht holt „Akkorde holen" die Akkordfolge (ohne Liedtext) über Claude; außerdem Links zur Websuche (Ultimate Guitar, Google)
+- **PDF:** transponierte Fassung mit Griffbildern als PDF (jsPDF, wird bei Bedarf vom CDN geladen)
 
 | Datei | Inhalt |
 | --- | --- |
